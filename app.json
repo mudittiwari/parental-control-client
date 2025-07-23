@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mudit.locationtrackerclient"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,11 +24,11 @@
         "FOREGROUND_SERVICE",
         "WAKE_LOCK"
       ],
-      "package": "com.mudit.locationtrackerclient",
-      "foregroundService": {
-        "notificationTitle": "Location Tracking Enabled",
-        "notificationBody": "Your location is being monitored for family safety."
-      }
+      "package": "com.mudit.locationtrackerclient"
+      // "foregroundService": {
+      //   "notificationTitle": "Location Tracking Enabled",
+      //   "notificationBody": "Your location is being monitored for family safety."
+      // }
     },
     "web": {
       "bundler": "metro",

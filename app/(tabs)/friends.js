@@ -1,19 +1,37 @@
-import { View, FlatList, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet, Button } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useRoute } from '@react-navigation/native';
 import FriendCard from '../../components/cards/friendCard';
 import { FAB } from 'react-native-paper';
 import { COLORS } from '../../constants/colors';
+import { startLocationTracking, stopLocationTracking } from '../../services/locationService';
+import { getLastLocation } from '../../services/locationStorage';
 
 const friends = [
-  { id: '1', name: 'Alice Johnson' },
-  { id: '2', name: 'Bob Smith' },
+  { id: 1, name: 'Alice Johnson' },
+  { id: 2, name: 'Bob Smith' },
 ];
 
 export default function FriendsScreen() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-
+  const handleStartTracking = async () => {
+    try {
+      await startLocationTracking();
+      console.log("Tracking started.");
+    } catch (err) {
+      console.error("Error starting tracking:", err);
+    }
+  };
+  const handleStopTracking = async () => {
+    try {
+      await stopLocationTracking();
+      console.log("Tracking stopped.");
+    } catch (err) {
+      console.error("Error starting tracking:", err);
+    }
+  };
   return (
     <View style={styles.container}>
       <FlatList
@@ -23,10 +41,19 @@ export default function FriendsScreen() {
           <FriendCard
             name={item.name}
             onPress={() => router.push(`/friend/${item.id}/features`)}
+          //             onPress={() => router.push({
+          //   pathname: '/features/addFeature',
+          //   params: { id: '1' },
+          // })
+          // }
           />
         )}
         contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
       />
+      <View style={styles.trackingButton}>
+        <Button title="Start Tracking" onPress={handleStartTracking} />
+        <Button title="Stop Tracking" onPress={handleStopTracking} />
+      </View>
       <FAB.Group
         open={open}
         icon={open ? 'close' : 'plus'}
@@ -53,4 +80,10 @@ export default function FriendsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  trackingButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+  },
 });

@@ -9,7 +9,7 @@ export default function LoginForm() {
   const [mobile, setMobile] = useState('');
 
   const handleLogin = () => {
-    if (mobile.length === 10) {
+    if (true) {
       router.replace('/(tabs)/friends');
     } else {
       alert('Please enter a valid 10-digit mobile number');

@@ -10,7 +10,7 @@ const friends = [
 
 export default function SelectFriendForFeature() {
   const router = useRouter();
-const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background, paddingTop: insets.top }}>
       <ScreenHeader title="Select a Friend" subtitle="Choose who to assign a feature to" />
@@ -22,7 +22,8 @@ const insets = useSafeAreaInsets();
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push({ pathname: '/features/addFeature', params: { id: item.id } })}
+            // onPress={() => router.push({ pathname: '/features/addFeature', params: { id: item.id } })}
+            onPress={() => router.push(`/features/addFeature/${item.id}`)}
           >
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.sub}>Tap to proceed</Text>

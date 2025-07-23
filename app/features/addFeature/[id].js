@@ -7,33 +7,28 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import { useContext } from 'react';
-import { LocationContext } from '../../context/locationContext';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { useEffect } from 'react';
-import { useState } from 'react';
-import { COLORS } from '../../constants/colors';
+import { useEffect, useState } from 'react';
+import { COLORS } from '../../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import { Picker } from '@react-native-picker/picker';
-import ScreenHeader from '../../components/headers/screenHeader';
+import ScreenHeader from '../../../components/headers/screenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import InteractiveMap from '../../../components/interactiveMap';
 
 const screen = Dimensions.get('window');
 
 export default function AddFeatureScreen() {
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams(); // ✅ dynamic route param
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [featureName, setFeatureName] = useState('');
   const [radius, setRadius] = useState(500);
-  const { location } = useContext(LocationContext);
-  const [selectedLocation, setSelectedLocation] = useState({
-    latitude: location.latitude || 37.78825,
-    longitude: location.longitude || -122.4324,
-  });
+  const [location, setLocation] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedFeatureType, setSelectedFeatureType] = useState('enter_area');
 
   const handleMapPress = (e) => {
@@ -51,6 +46,26 @@ export default function AddFeatureScreen() {
     });
     router.back();
   };
+
+  async function getCurrentLocation() {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission to access location was denied');
+      return;
+    }
+
+    let current = await Location.getCurrentPositionAsync({});
+    setLocation(current);
+    setSelectedLocation({
+      latitude: current.coords.latitude,
+      longitude: current.coords.longitude,
+    });
+    console.log(current);
+  }
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -81,7 +96,7 @@ export default function AddFeatureScreen() {
         </View>
 
         <Text style={styles.label}>Pick Location on Map</Text>
-        <MapView
+        {/* <MapView
           style={styles.map}
           initialRegion={{
             ...selectedLocation,
@@ -91,8 +106,22 @@ export default function AddFeatureScreen() {
           onPress={handleMapPress}
         >
           <Marker coordinate={selectedLocation} />
-          <Circle center={selectedLocation} radius={radius} strokeColor={COLORS.primary} fillColor={'rgba(0, 122, 255, 0.1)'} />
-        </MapView>
+          <Circle
+            center={selectedLocation}
+            radius={radius}
+            strokeColor={COLORS.primary}
+            fillColor={'rgba(0, 122, 255, 0.1)'}
+          />
+        </MapView> */}
+        {selectedLocation ? (
+          <InteractiveMap
+            initialLocation={selectedLocation}
+            radius={radius}
+            onLocationSelect={(coords) => setSelectedLocation(coords)}
+          />
+        ) : (
+          <Text style={{ textAlign: 'center', marginTop: 12 }}>📍 Getting location...</Text>
+        )}
 
         <View style={styles.inputWrapper}>
           <Ionicons name="resize" size={20} color={COLORS.grayText} style={styles.icon} />
@@ -177,4 +206,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
