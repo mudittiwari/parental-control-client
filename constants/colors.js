@@ -31,4 +31,8 @@ export const COLORS = {
   grayText: '#607D8B',
   darkText: '#1F2D3D',
   border: '#ddd',
+  lightGray: '#F3F4F6', // Gray-100
+  darkGray: '#374151', // Gray-700
+  red: '#EF4444',       // Red-500
+  green: '#10B981',
 };

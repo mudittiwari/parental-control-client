@@ -1,2 +1,2 @@
 things to add.
-4. do the encryption and decryption of the coordinates.
+3. reconnection of the socket if it fails while sending the location data.

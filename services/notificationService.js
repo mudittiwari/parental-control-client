@@ -2,7 +2,6 @@ import notifee, { AndroidImportance } from "@notifee/react-native";
 
 export async function onDisplayNotification() {
 
-    // Create a channel (required for Android)
     const channelId = await notifee.createChannel({
         id: 'default',
         name: 'Default Channel',
@@ -15,7 +14,7 @@ export async function onDisplayNotification() {
         body: 'This is a high-priority notification!',
         android: {
             channelId,
-            smallIcon: 'ic_launcher', // Ensure this icon exists in your Android mipmap
+            smallIcon: 'ic_launcher', 
             pressAction: {
                 id: 'default',
             },
