@@ -5,12 +5,12 @@ import { loadKeyPair } from './keysStorage';
 import { RSA } from 'react-native-rsa-native';
 import { useTrackingStatus } from './trackingStatus'; 
 const { setSocketConnected } = useTrackingStatus.getState();
-
+import { SOCKET_URL } from '../constants/constants';
 let client = null;
 
 export const initSocket = () => {
   if (client && client.active && client.connected) return;
-  const socket = new SockJS('http://192.168.1.16:8080/ws');
+  const socket = new SockJS(`${SOCKET_URL}/ws`);
   client = new Client({
     webSocketFactory: () => socket,
     debug: (msg) => console.log('STOMP DEBUG:', msg),

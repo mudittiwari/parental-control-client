@@ -1,37 +1,44 @@
-import { View, FlatList, StyleSheet, Button } from 'react-native';
-import { useState } from 'react';
+import { View, FlatList, StyleSheet, Text } from 'react-native';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { useRoute } from '@react-navigation/native';
-import FriendCard from '../../components/cards/friendCard';
 import { FAB } from 'react-native-paper';
+import FriendCard from '../../components/cards/friendCard';
 import { COLORS } from '../../constants/colors';
-
-const friends = [
-  { id: 1, name: 'Alice Johnson' },
-  { id: 2, name: 'Bob Smith' },
-];
+import { getMatchedContacts } from '../../services/localStorage';
+import LoadingBar from '../../components/loadingBar';
+import { getContacts } from '../../services/contactService';
 
 export default function FriendsScreen() {
+  const [friends, setFriends] = useState([]);
   const [open, setOpen] = useState(false);
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const matched = getMatchedContacts();
+    setFriends(matched || []);
+  }, []);
+
   return (
     <View style={styles.container}>
-      <FlatList
-        data={friends}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <FriendCard
-            name={item.name}
-            onPress={() => router.push(`/friend/${item.id}/features`)}
-          //             onPress={() => router.push({
-          //   pathname: '/features/addFeature',
-          //   params: { id: '1' },
-          // })
-          // }
-          />
-        )}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
-      />
+
+      {isLoading && <LoadingBar />}
+      {friends.length === 0 ? (
+        <Text style={styles.noFriends}>No matched contacts found.</Text>
+      ) : (
+        <FlatList
+          data={friends}
+          keyExtractor={(item, index) => item.phoneNumber || index.toString()}
+          renderItem={({ item }) => (
+            <FriendCard
+              name={item.name || item.phoneNumber}
+              onPress={() => router.push(`/friend/${item.phoneNumber}/features`)}
+            />
+          )}
+          contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
+        />
+      )}
+
       <FAB.Group
         open={open}
         icon={open ? 'close' : 'plus'}
@@ -46,11 +53,21 @@ export default function FriendsScreen() {
             label: 'Add Group',
             onPress: () => router.push('/groups/add'),
           },
+          {
+            icon: 'refresh',
+            label: 'Refresh Contacts',
+            onPress: async () => {
+              setIsLoading(true);
+              await getContacts();
+              const matched = getMatchedContacts();
+              setFriends(matched || []);
+              setIsLoading(false);
+            },
+          },
         ]}
         onStateChange={({ open }) => setOpen(open)}
         style={{ position: 'absolute', bottom: 0, right: 8 }}
       />
-
 
     </View>
   );
@@ -58,4 +75,10 @@ export default function FriendsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  noFriends: {
+    marginTop: 40,
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#64748B',
+  },
 });

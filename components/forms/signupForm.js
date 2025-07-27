@@ -1,26 +1,53 @@
-import { View, TextInput, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, TextInput, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { GLOBAL } from '../../constants/global';
 import { COLORS } from '../../constants/colors';
 import PrimaryButton from '../../components/buttons/primaryButton';
+import axios from 'axios';
+import LoadingBar from '../../components/loadingBar'; 
+import { BASE_URL } from '../../constants/constants';
 
 export default function SignupForm() {
-  const [form, setForm] = useState({ name: '', email: '', mobile: '' });
+  const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '' });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = () => {
-    if (!form.name || !form.email || form.mobile.length !== 10) {
-      alert('Please fill all fields with valid info');
+  const handleSignup = async () => {
+    if (!form.name || !form.email || form.mobile.length !== 10 || !form.password) {
+      Alert.alert('Validation Error', 'Please fill all fields with valid info');
       return;
     }
 
-    // In real app: send to backend here
+    setIsLoading(true);
+    try {
+      const res = await axios.post(`${BASE_URL}/auth/register`, {
+        name: form.name,
+        email: form.email,
+        phoneNumber: form.mobile,
+        password: form.password,
+        lat: "",
+        lon: "",
+      },{
+        headers: {
+          'Content-Type': 'application/json',
+          "ngrok-skip-browser-warning": "true"
+        },
+      });
 
-    router.replace('/(tabs)/friends');
+      Alert.alert('Success', 'User registered successfully');
+      router.replace('/');
+    } catch (error) {
+      console.error('Signup error:', error);
+      Alert.alert('Signup Failed', error.response?.data?.message || 'Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <View style={GLOBAL.card}>
+      {isLoading && <LoadingBar />}
+
       <Text style={styles.label}>Full Name</Text>
       <TextInput
         style={GLOBAL.input}
@@ -48,12 +75,18 @@ export default function SignupForm() {
         onChangeText={(val) => setForm({ ...form, mobile: val })}
       />
 
+      <Text style={styles.label}>Password</Text>
+      <TextInput
+        style={GLOBAL.input}
+        placeholder="Enter your password"
+        secureTextEntry
+        value={form.password}
+        onChangeText={(val) => setForm({ ...form, password: val })}
+      />
+
       <PrimaryButton title="Sign Up" onPress={handleSignup} />
 
-      <TouchableOpacity onPress={() => {
-        console.log("Navigating to login screen");
-        router.replace('/')
-        }}>
+      <TouchableOpacity onPress={() => router.replace('/')}>
         <Text style={styles.link}>
           Already have an account? <Text style={{ fontWeight: 'bold' }}>Login</Text>
         </Text>

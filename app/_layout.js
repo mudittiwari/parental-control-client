@@ -3,7 +3,6 @@ import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-// import { LocationProvider } from '../context/locationContext'; // your context
 import { initSocket } from '../services/socketConnection';
 import { startLocationTracking, checkPermissions } from '../services/locationService';
 import { onDisplayNotification } from '../services/notificationService';
@@ -12,6 +11,8 @@ import { generateKeyPair } from "../services/generateKeys";
 import { loadKeyPair, saveKeyPair, deleteKeyPair } from "../services/keysStorage";
 import { isLocationTracking } from '../services/locationService';
 import { useTrackingStatus } from '../services/trackingStatus';
+import { getContacts } from '../services/contactService';
+import {getMatchedContacts} from "../services/localStorage";
 export default function Layout() {
 
   const { setLocationTracking, setSocketConnected } = useTrackingStatus.getState();
@@ -19,7 +20,6 @@ export default function Layout() {
     notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (type === EventType.PRESS) {
         console.log('📲 Notification pressed in background:', detail.notification.id);
-        // Handle navigation, data fetching, etc.
       }
     });
 
@@ -44,6 +44,11 @@ export default function Layout() {
     initSocket();
     await checkPermissions();
     initializeNotification();
+
+    const contacts =  getMatchedContacts();
+    if(contacts == null || contacts.length === 0){
+      await getContacts();
+    }
     const keyPair = await loadKeyPair();
     if (!keyPair) {
       console.log('No key pair found, generating new keys...');

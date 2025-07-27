@@ -7,12 +7,29 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
-
+import { useRouter } from 'expo-router';
 import AuthHeader from '../components/headers/authHeader';
+import { useEffect } from 'react';
 import LoginForm from '../components/forms/loginForm';
 import { COLORS } from '../constants/colors';
+import { getUser } from '../services/localStorage';
+import { InteractionManager } from 'react-native';
 
 export default function LoginScreen() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      const user = getUser();
+      if (user) {
+        console.log('User already logged in:', user);
+        router.replace('/(tabs)/friends');
+      }
+    });
+
+    return () => task.cancel();
+  }, []);
+
   return (
     <KeyboardAvoidingView
       style={styles.wrapper}

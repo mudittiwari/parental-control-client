@@ -1,57 +1,182 @@
-import { View, FlatList, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import FeatureCard from '../../../components/cards/featureCard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUserStore } from '../../../services/state/userState';
+import { getMatchedContacts } from '../../../services/localStorage';
 import ScreenHeader from '../../../components/headers/screenHeader';
 import { COLORS } from '../../../constants/colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-const mockFeatures = [
-  {
-    id: 'f1',
-    name: 'School Zone Geofence',
-    description: 'Alerts when child enters/exits school zone.',
-    type: 'geofence',
-  },
-  {
-    id: 'f2',
-    name: 'Home Radius Alert',
-    description: 'Notification when child leaves home perimeter.',
-    type: 'alert',
-  },
-  {
-    id: 'f3',
-    name: 'Night Stay Monitor',
-    description: 'Notifies if child stays outside home after 10pm.',
-    type: 'safezone',
-  },
-];
+import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
+import { useState } from 'react';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 export default function FriendFeatures() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
+  const layout = Dimensions.get('window');
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { id } = useLocalSearchParams(); // friend's phone
+  const user = useUserStore((state) => state.user);
+  const matchedContacts = getMatchedContacts();
+  const matched = matchedContacts.find((c) => c.phoneNumber === id);
+  const allFeatures = matched?.features || {};
+
+  const featuresIHaveOnFriend = allFeatures[`${user.phoneNumber}_on_${id}`] || [];
+  const featuresFriendHasOnMe = allFeatures[`${id}_on_${user.phoneNumber}`] || [];
+
+  const renderFeatureCard = (feature) => (
+    <TouchableOpacity
+      key={feature.id}
+      style={styles.card}
+      onPress={() =>
+        router.push({
+          pathname: `/friend/${feature.trackeePhone}/features/${feature.id}`,
+          params: {
+            data: JSON.stringify(feature),
+            friendId: id,
+          },
+        })
+      }
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.iconCircle}>
+          <Ionicons name="shield-checkmark" size={20} color="#fff" />
+        </View>
+        <View style={styles.headerText}>
+          <Text style={styles.featureName}>{feature.name}</Text>
+          <View
+            style={[
+              styles.statusPill,
+              {
+                backgroundColor:
+                  feature.status === 'APPROVED'
+                    ? '#10B98122'
+                    : feature.status === 'PENDING'
+                      ? '#F59E0B22'
+                      : '#EF444422',
+              },
+            ]}
+          >
+            <Ionicons
+              name={
+                feature.status === 'APPROVED'
+                  ? 'checkmark-circle'
+                  : feature.status === 'PENDING'
+                    ? 'time'
+                    : 'close-circle'
+              }
+              size={14}
+              color={
+                feature.status === 'APPROVED'
+                  ? '#10B981'
+                  : feature.status === 'PENDING'
+                    ? '#F59E0B'
+                    : '#EF4444'
+              }
+            />
+            <Text
+              style={[
+                styles.statusText,
+                {
+                  color:
+                    feature.status === 'APPROVED'
+                      ? '#10B981'
+                      : feature.status === 'PENDING'
+                        ? '#F59E0B'
+                        : '#EF4444',
+                },
+              ]}
+            >
+              {feature.status}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.detailRow}>
+        <Ionicons name="radio" size={18} color={COLORS.primary} />
+        <Text style={styles.detailText}>Radius: {feature.area.radiusInKm} km</Text>
+      </View>
+
+      <View style={styles.detailRow}>
+        <Ionicons name="location" size={18} color={COLORS.primary} />
+        <Text style={styles.detailText}>
+          Lat: {parseFloat(feature.area.centerLocation.latitude).toFixed(4)}, Lon:{' '}
+          {parseFloat(feature.area.centerLocation.longitude).toFixed(4)}
+        </Text>
+      </View>
+
+      {feature.schedules?.length > 0 && (
+        <View style={styles.scheduleBlock}>
+          <Text style={styles.scheduleLabel}>🗓 Schedules</Text>
+          {feature.schedules.map((s, idx) => (
+            <View key={idx} style={styles.scheduleItem}>
+              <Text style={styles.time}>
+                {s.startTime} - {s.endTime}
+              </Text>
+              {s.activeDays.length > 0 && (
+                <Text style={styles.meta}>📅 Days: {s.activeDays.join(', ')}</Text>
+              )}
+              {s.activeDates.length > 0 && (
+                <Text style={styles.meta}>📍 Dates: {s.activeDates.join(', ')}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+
+
+  const renderMine = () => (
+    <ScrollView contentContainerStyle={styles.tabContent}>
+      {featuresIHaveOnFriend.length === 0 ? (
+        <Text style={styles.empty}>You have no features set on this user.</Text>
+      ) : featuresIHaveOnFriend.map(renderFeatureCard)}
+    </ScrollView>
+  );
+
+  const renderTheirs = () => (
+    <ScrollView contentContainerStyle={styles.tabContent}>
+      {featuresFriendHasOnMe.length === 0 ? (
+        <Text style={styles.empty}>This user has no features set on you.</Text>
+      ) : featuresFriendHasOnMe.map(renderFeatureCard)}
+    </ScrollView>
+  );
+
+  const [index, setIndex] = useState(0);
+  const [routes] = useState([
+    { key: 'mine', title: 'My Features' },
+    { key: 'theirs', title: 'Their Features' },
+  ]);
+
+  const renderScene = SceneMap({
+    mine: renderMine,
+    theirs: renderTheirs,
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScreenHeader
-        title="Features"
-        subtitle="Geo-fencing features enabled"
+        title="Mutual Features"
+        subtitle={`With ${matched?.name || id}`}
         rightIcon="information-circle-outline"
         onRightPress={() => console.log('Info')}
       />
-
-
-      <FlatList
-        data={mockFeatures}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <FeatureCard
-            title={item.name}
-            description={item.description}
-            type={item.type}
-            onPress={() => router.push(`/friend/${id}/features/${item.id}`)}
+      <TabView
+        navigationState={{ index, routes }}
+        renderScene={renderScene}
+        onIndexChange={setIndex}
+        initialLayout={{ width: layout.width }}
+        renderTabBar={(props) => (
+          <TabBar
+            {...props}
+            indicatorStyle={{ backgroundColor: COLORS.primary }}
+            style={{ backgroundColor: COLORS.white }}
+            activeColor={COLORS.primary}
+            inactiveColor={COLORS.grayText}
+            labelStyle={{ fontWeight: '600' }}
           />
         )}
-        contentContainerStyle={styles.list}
       />
     </View>
   );
@@ -62,10 +187,144 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  list: {
+  tabContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
     paddingTop: 16,
   },
-});
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
 
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+
+  iconCircle: {
+    backgroundColor: COLORS.primary,
+    padding: 10,
+    borderRadius: 50,
+    marginRight: 12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+  },
+
+  headerText: {
+    flex: 1,
+  },
+
+  featureName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginTop: 2,
+  },
+
+  statusText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+
+  detailText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#4B5563',
+  },
+
+  scheduleBlock: {
+    marginTop: 14,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+
+  scheduleLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+
+  scheduleItem: {
+    marginBottom: 10,
+  },
+
+  time: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+
+  meta: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  icon: {
+    fontSize: 16,
+    marginRight: 4,
+  },
+  scheduleTitle: {
+    fontWeight: '600',
+    fontSize: 14,
+    marginTop: 10,
+    color: '#374151',
+  },
+  scheduleItem: {
+    marginTop: 4,
+  },
+  scheduleTime: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  scheduleDays: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  empty: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    textAlign: 'center',
+    marginTop: 40,
+    fontStyle: 'italic',
+  },
+});
