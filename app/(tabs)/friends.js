@@ -9,6 +9,7 @@ import LoadingBar from '../../components/loadingBar';
 import { getContacts } from '../../services/contactService';
 import { loadKeyPair } from '../../services/keysStorage';
 import { useCallback } from 'react';
+import {generateKeyPair} from "../../services/generateKeys"
 
 export default function FriendsScreen() {
   const [friends, setFriends] = useState([]);
@@ -33,7 +34,7 @@ export default function FriendsScreen() {
       setIsLoading(true);
       await refreshContacts();
     } catch (error) {
-      console.error('❌ Error initializing contacts:', error);
+      console.error(' Error initializing contacts:', error);
     } finally {
       setIsLoading(false);
     }
@@ -45,7 +46,7 @@ export default function FriendsScreen() {
       setIsLoading(true);
       await refreshContacts();
     } catch (error) {
-      console.error('❌ Error refreshing contacts:', error);
+      console.error('Error refreshing contacts:', error);
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -57,14 +58,14 @@ export default function FriendsScreen() {
 
     let keyPair = await loadKeyPair();
     if (!keyPair) {
-      console.log('🔑 No key pair found, generating new keys...');
+      console.log(' No key pair found, generating new keys...');
       const newKeys = await generateKeyPair();
       await saveKeyPair(newKeys);
       keyPair = newKeys;
     }
 
     const matchedContacts = getMatchedContacts();
-    console.log('👥 Matched Contacts:', matchedContacts);
+    console.log('Matched Contacts:', matchedContacts);
     setFriends(matchedContacts || []);
   };
 

@@ -29,8 +29,9 @@ export const initSocket = (client) => {
       console.log('✅ STOMP connected');
       setSocketConnected(true);
 
-      client.subscribe('/topic/notifications/device123', async (message) => {
+      client.subscribe('/topic/notifications/6376433270', async (message) => {
         try {
+          console.log(message.body)
           const body = JSON.parse(message?.body);
           const payload = body?.payload;
           const keys = await loadKeyPair();
@@ -39,7 +40,7 @@ export const initSocket = (client) => {
             console.error('❌ No keys found for decryption');
             return;
           }
-
+          console.log(keys)
           const privateKey = keys.private;
           const decryptedPayload = await RSA.decrypt(payload, privateKey);
           console.log('📥 Decrypted payload:', decryptedPayload);

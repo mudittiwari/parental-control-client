@@ -96,14 +96,14 @@ const locationTask = async (params) => {
             const isConnected = client?.connected;
 
             if (isConnected) {
-                console.log('✅ Socket is connected');
+                // console.log('✅ Socket is connected');
                 // Optionally: emit heartbeat or ping
             } else {
                 console.warn('❌ Socket not connected, trying to reconnect...');
                 client = initSocket(); // re-init if lost
             }
 
-            await sleep(5000); // avoid CPU hogging
+            await sleep(10000); // avoid CPU hogging
         }
     }
 

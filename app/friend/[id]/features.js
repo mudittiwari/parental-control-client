@@ -8,12 +8,14 @@ import { COLORS } from '../../../constants/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { useState } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useRef, useEffect } from 'react';
+import { Animated, Easing } from 'react-native';
 
 export default function FriendFeatures() {
   const layout = Dimensions.get('window');
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { id } = useLocalSearchParams(); // friend's phone
+  const { id } = useLocalSearchParams();
   const user = useUserStore((state) => state.user);
   const matchedContacts = getMatchedContacts();
   const matched = matchedContacts.find((c) => c.phoneNumber === id);
@@ -22,108 +24,219 @@ export default function FriendFeatures() {
   const featuresIHaveOnFriend = allFeatures[`${user.phoneNumber}_on_${id}`] || [];
   const featuresFriendHasOnMe = allFeatures[`${id}_on_${user.phoneNumber}`] || [];
 
-  const renderFeatureCard = (feature) => (
-    <TouchableOpacity
-      key={feature.id}
-      style={styles.card}
-      onPress={() =>
-        router.push({
-          pathname: `/friend/${feature.trackeePhone}/features/${feature.id}`,
-          params: {
-            data: JSON.stringify(feature),
-            friendId: id,
-          },
-        })
+  const pulseOpacity = useRef(new Animated.Value(0.3)).current;
+
+  const isNowInSchedule = (schedules) => {
+    const now = new Date();
+
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+
+    const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
+    const dayFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'long',
+    });
+
+    const [hourStr, minuteStr] = formatter.format(now).split(':');
+    const currentTime = parseInt(hourStr) * 60 + parseInt(minuteStr);
+
+    const currentDate = dateFormatter.format(now);
+    const currentDay = dayFormatter.format(now).toUpperCase();
+
+    return schedules?.some((schedule) => {
+      const [startHour, startMin] = schedule.startTime.split(':').map(Number);
+      const [endHour, endMin] = schedule.endTime.split(':').map(Number);
+
+      const start = startHour * 60 + startMin;
+      let end = endHour * 60 + endMin;
+
+      if (end === 0) end = 1440;
+
+      const dayMatch = schedule.activeDays?.includes(currentDay);
+      const dateMatch = schedule.activeDates?.includes(currentDate);
+
+      console.log(currentTime, currentDate, currentDay, start, end, dayMatch, dateMatch);
+
+      return (dayMatch || dateMatch) && currentTime >= start && currentTime < end;
+    });
+  };
+
+
+
+
+  const renderFeatureCard = (feature, type) => {
+    const isActiveNow = isNowInSchedule(feature.schedules || []);
+    useEffect(() => {
+      if (isActiveNow) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseOpacity, {
+              toValue: 0.6,
+              duration: 1000,
+              useNativeDriver: false,
+            }),
+            Animated.timing(pulseOpacity, {
+              toValue: 0.3,
+              duration: 1000,
+              useNativeDriver: false,
+            }),
+          ])
+        ).start();
       }
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.iconCircle}>
-          <Ionicons name="shield-checkmark" size={20} color="#fff" />
-        </View>
-        <View style={styles.headerText}>
-          <Text style={styles.featureName}>{feature.name}</Text>
-          <View
-            style={[
-              styles.statusPill,
-              {
-                backgroundColor:
-                  feature.status === 'APPROVED'
-                    ? '#10B98122'
-                    : feature.status === 'PENDING'
-                      ? '#F59E0B22'
-                      : '#EF444422',
+    }, [isActiveNow]);
+
+    return (
+      <Animated.View
+        key={feature.id}
+        style={[
+          styles.cardWrapper,
+          isActiveNow && {
+            shadowColor: '#10B981',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: pulseOpacity,
+            shadowRadius: 10,
+            elevation: 10,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.card,
+            isActiveNow && styles.liveCard,
+          ]}
+          onPress={() =>
+            router.push({
+              pathname: `/friend/${feature.trackeePhone}/features/${feature.id}`,
+              params: {
+                data: JSON.stringify(feature),
+                friendId: id,
               },
-            ]}
-          >
-            <Ionicons
-              name={
-                feature.status === 'APPROVED'
-                  ? 'checkmark-circle'
-                  : feature.status === 'PENDING'
-                    ? 'time'
-                    : 'close-circle'
-              }
-              size={14}
-              color={
-                feature.status === 'APPROVED'
-                  ? '#10B981'
-                  : feature.status === 'PENDING'
-                    ? '#F59E0B'
-                    : '#EF4444'
-              }
-            />
-            <Text
-              style={[
-                styles.statusText,
-                {
-                  color:
+            })
+          }
+        >
+          {isActiveNow && (
+            <View style={styles.liveBadgeWrapper}>
+              <Text style={styles.liveBadgeText}>📡 LIVE</Text>
+            </View>
+          )}
+          {isActiveNow && (
+            <View style={styles.actionButtonsContainer}>
+              {type === 'theirs' && (
+                <TouchableOpacity style={styles.actionButton} onPress={() => handleStartLocationShare(feature)}>
+                  <Ionicons name="location" size={16} color="#fff" />
+                </TouchableOpacity>
+              )}
+              {type === 'mine' && (
+                <TouchableOpacity style={styles.actionButton} onPress={() => handleSocketConnect(feature)}>
+                  <Ionicons name="wifi" size={16} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <View style={styles.cardHeader}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="shield-checkmark" size={20} color="#fff" />
+            </View>
+
+            <View style={styles.headerText}>
+              <Text style={styles.featureName}>{feature.name}</Text>
+
+              <View
+                style={[
+                  styles.statusPill,
+                  {
+                    backgroundColor:
+                      feature.status === 'APPROVED'
+                        ? '#10B98122'
+                        : feature.status === 'PENDING'
+                          ? '#F59E0B22'
+                          : '#EF444422',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    feature.status === 'APPROVED'
+                      ? 'checkmark-circle'
+                      : feature.status === 'PENDING'
+                        ? 'time'
+                        : 'close-circle'
+                  }
+                  size={14}
+                  color={
                     feature.status === 'APPROVED'
                       ? '#10B981'
                       : feature.status === 'PENDING'
                         ? '#F59E0B'
-                        : '#EF4444',
-                },
-              ]}
-            >
-              {feature.status}
+                        : '#EF4444'
+                  }
+                />
+                <Text
+                  style={[
+                    styles.statusText,
+                    {
+                      color:
+                        feature.status === 'APPROVED'
+                          ? '#10B981'
+                          : feature.status === 'PENDING'
+                            ? '#F59E0B'
+                            : '#EF4444',
+                    },
+                  ]}
+                >
+                  {feature.status}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Ionicons name="radio" size={18} color={COLORS.primary} />
+            <Text style={styles.detailText}>Radius: {feature.area.radiusInKm} km</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Ionicons name="location" size={18} color={COLORS.primary} />
+            <Text style={styles.detailText}>
+              Lat: {parseFloat(feature.area.centerLocation.latitude).toFixed(4)}, Lon:{' '}
+              {parseFloat(feature.area.centerLocation.longitude).toFixed(4)}
             </Text>
           </View>
-        </View>
-      </View>
 
-      <View style={styles.detailRow}>
-        <Ionicons name="radio" size={18} color={COLORS.primary} />
-        <Text style={styles.detailText}>Radius: {feature.area.radiusInKm} km</Text>
-      </View>
-
-      <View style={styles.detailRow}>
-        <Ionicons name="location" size={18} color={COLORS.primary} />
-        <Text style={styles.detailText}>
-          Lat: {parseFloat(feature.area.centerLocation.latitude).toFixed(4)}, Lon:{' '}
-          {parseFloat(feature.area.centerLocation.longitude).toFixed(4)}
-        </Text>
-      </View>
-
-      {feature.schedules?.length > 0 && (
-        <View style={styles.scheduleBlock}>
-          <Text style={styles.scheduleLabel}>🗓 Schedules</Text>
-          {feature.schedules.map((s, idx) => (
-            <View key={idx} style={styles.scheduleItem}>
-              <Text style={styles.time}>
-                {s.startTime} - {s.endTime}
-              </Text>
-              {s.activeDays.length > 0 && (
-                <Text style={styles.meta}>📅 Days: {s.activeDays.join(', ')}</Text>
-              )}
-              {s.activeDates.length > 0 && (
-                <Text style={styles.meta}>📍 Dates: {s.activeDates.join(', ')}</Text>
-              )}
+          {feature.schedules?.length > 0 && (
+            <View style={styles.scheduleBlock}>
+              <Text style={styles.scheduleLabel}>🗓 Schedules</Text>
+              {feature.schedules.map((s, idx) => (
+                <View key={idx} style={styles.scheduleItem}>
+                  <Text style={styles.time}>
+                    {s.startTime} - {s.endTime}
+                  </Text>
+                  {s.activeDays.length > 0 && (
+                    <Text style={styles.meta}>📅 Days: {s.activeDays.join(', ')}</Text>
+                  )}
+                  {s.activeDates.length > 0 && (
+                    <Text style={styles.meta}>📍 Dates: {s.activeDates.join(', ')}</Text>
+                  )}
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
 
 
@@ -131,7 +244,9 @@ export default function FriendFeatures() {
     <ScrollView contentContainerStyle={styles.tabContent}>
       {featuresIHaveOnFriend.length === 0 ? (
         <Text style={styles.empty}>You have no features set on this user.</Text>
-      ) : featuresIHaveOnFriend.map(renderFeatureCard)}
+      ) : featuresIHaveOnFriend.map((feature) =>
+        renderFeatureCard(feature, 'mine')
+      )}
     </ScrollView>
   );
 
@@ -139,7 +254,7 @@ export default function FriendFeatures() {
     <ScrollView contentContainerStyle={styles.tabContent}>
       {featuresFriendHasOnMe.length === 0 ? (
         <Text style={styles.empty}>This user has no features set on you.</Text>
-      ) : featuresFriendHasOnMe.map(renderFeatureCard)}
+      ) : featuresFriendHasOnMe.map(renderFeatureCard, 'theirs')}
     </ScrollView>
   );
 
@@ -327,4 +442,64 @@ const styles = StyleSheet.create({
     marginTop: 40,
     fontStyle: 'italic',
   },
+  cardWrapper: {
+    marginVertical: 10,
+    borderRadius: 12,
+  },
+
+  card: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+  },
+
+  liveCard: {
+    backgroundColor: '#f0fff8',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+
+
+  liveBadgeWrapper: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    zIndex: 10,
+  },
+
+  liveBadgeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+    paddingTop: 20,
+    position: 'absolute',
+    right: 15,
+    top: 15,
+    gap: 8
+  },
+
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+
 });

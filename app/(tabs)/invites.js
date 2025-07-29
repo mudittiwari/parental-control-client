@@ -5,27 +5,34 @@ import { useUserStore } from '../../services/state/userState';
 import { BASE_URL } from '../../constants/constants';
 import { getMatchedContacts } from '../../services/localStorage';
 import CompactMap from '../../components/miniMapView';
+import LoadingBar from '../../components/loadingBar';
 
 export default function InvitesScreen() {
   const user = useUserStore((state) => state.user);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const matchedContacts = getMatchedContacts();
+  const [loading, setLoading] = useState(true);
 
   const fetchPendingRequests = async () => {
     try {
+      setRefreshing(true);
+      setLoading(true);
       const response = await axios.get(`${BASE_URL}/features/pending/${user.phoneNumber}`);
       console.log('Pending requests:', response.data);
       setPendingRequests(response.data || []);
     } catch (err) {
+      console.log(err.response?.data || err.message);
       Alert.alert('Error', 'Could not load invites');
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
   };
 
   const approveFeature = async (featureId) => {
     try {
+      setLoading(true);
       await axios.post(`${BASE_URL}/features/${featureId}/approve`, {
         trackeePhone: user.phoneNumber,
       }).then(response => {
@@ -37,6 +44,9 @@ export default function InvitesScreen() {
     } catch (err) {
       console.error('Failed to approve feature:', err);
       Alert.alert('Error', 'Approval failed');
+    }
+    finally{
+      setLoading(false);
     }
   };
 
@@ -98,6 +108,8 @@ export default function InvitesScreen() {
   };
 
   return (
+    <>
+    {loading ? <LoadingBar /> : null}
     <FlatList
       data={pendingRequests}
       keyExtractor={(item) => item.id.toString()}
@@ -131,6 +143,7 @@ export default function InvitesScreen() {
       }
 
     />
+    </>
   );
 
 }
