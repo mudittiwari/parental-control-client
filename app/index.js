@@ -15,6 +15,9 @@ import { COLORS } from '../constants/colors';
 import { getUser } from '../services/localStorage';
 import { InteractionManager } from 'react-native';
 
+
+
+
 export default function LoginScreen() {
   const router = useRouter();
 

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initSocket } from '../services/socketConnection';
@@ -12,10 +13,19 @@ import { loadKeyPair, saveKeyPair, deleteKeyPair } from "../services/keysStorage
 import { isLocationTracking } from '../services/locationService';
 import { useTrackingStatus } from '../services/trackingStatus';
 import { getContacts } from '../services/contactService';
-import {getMatchedContacts} from "../services/localStorage";
-export default function Layout() {
+import { getMatchedContacts } from "../services/localStorage";
+import * as SplashScreen from 'expo-splash-screen';
+import SplashOverlay from '../components/splashOverlay';
+import '../services/socketHeadless';
+import { NativeModules } from 'react-native';
+import { AppRegistry } from 'react-native';
+import { SocketTask } from '../services/socketHeadless';
+SplashScreen.preventAutoHideAsync();
 
-  const { setLocationTracking, setSocketConnected } = useTrackingStatus.getState();
+export default function Layout() {
+  const { rehydrateTrackingState } = useTrackingStatus();
+
+  const [showSplash, setShowSplash] = useState(true);
   function initializeNotification() {
     notifee.onBackgroundEvent(async ({ type, detail }) => {
       if (type === EventType.PRESS) {
@@ -40,30 +50,34 @@ export default function Layout() {
 
   }
 
-  async function initialize() {
-    initSocket();
-    await checkPermissions();
-    initializeNotification();
 
-    const contacts =  getMatchedContacts();
-    if(contacts == null || contacts.length === 0){
-      await getContacts();
+
+
+  async function initialize() {
+    try {
+      await checkPermissions();
+      initializeNotification();
+      const contacts = getMatchedContacts();
+      if (!contacts || contacts.length === 0) {
+        await getContacts();
+      }
+      const keyPair = await loadKeyPair();
+      if (!keyPair) {
+        console.log('No key pair found, generating new keys...');
+        const keys = await generateKeyPair();
+        await saveKeyPair(keys);
+      }
+
+    } catch (error) {
+      console.error('Initialization error:', error);
+    } finally {
+      await startLocationTracking(true, false);
+      rehydrateTrackingState();
+      await SplashScreen.hideAsync();
+      setShowSplash(false);
     }
-    const keyPair = await loadKeyPair();
-    if (!keyPair) {
-      console.log('No key pair found, generating new keys...');
-      const keys = await generateKeyPair();
-      await saveKeyPair(keys);
-    }
-    const isLocationTrackingActive = isLocationTracking();
-    if(isLocationTrackingActive){
-      setLocationTracking(true);
-    }
-    else{
-      setLocationTracking(false);
-    }
-    // console.log(keyPair)
   }
+
 
   useEffect(() => {
     initialize();
@@ -74,6 +88,7 @@ export default function Layout() {
       <SafeAreaProvider>
         {/* <LocationProvider> */}
         <Stack screenOptions={{ headerShown: false }} />
+        {showSplash && <SplashOverlay />}
         {/* </LocationProvider> */}
       </SafeAreaProvider>
     </GestureHandlerRootView>

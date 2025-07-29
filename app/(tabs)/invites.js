@@ -1,4 +1,4 @@
-import { View, Text, FlatList, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Alert, StyleSheet, RefreshControl, Image } from 'react-native';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useUserStore } from '../../services/state/userState';
@@ -25,20 +25,20 @@ export default function InvitesScreen() {
   };
 
   const approveFeature = async (featureId) => {
-  try {
-    await axios.post(`${BASE_URL}/features/${featureId}/approve`, {
-      trackeePhone: user.phoneNumber,
-    }).then(response => {
-      console.log('Feature approved:', response.data);
-    });
-    console.log()
-    Alert.alert('Success', 'Feature approved successfully');
-    fetchPendingRequests();
-  } catch (err) {
-    console.error('Failed to approve feature:', err);
-    Alert.alert('Error', 'Approval failed');
-  }
-};
+    try {
+      await axios.post(`${BASE_URL}/features/${featureId}/approve`, {
+        trackeePhone: user.phoneNumber,
+      }).then(response => {
+        console.log('Feature approved:', response.data);
+      });
+      console.log()
+      Alert.alert('Success', 'Feature approved successfully');
+      fetchPendingRequests();
+    } catch (err) {
+      console.error('Failed to approve feature:', err);
+      Alert.alert('Error', 'Approval failed');
+    }
+  };
 
   useEffect(() => {
     fetchPendingRequests();
@@ -111,9 +111,28 @@ export default function InvitesScreen() {
           }}
         />
       }
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{
+        padding: 16,
+        flexGrow: 1,
+        justifyContent: pendingRequests.length === 0 ? 'center' : 'flex-start',
+      }}
+      ListEmptyComponent={
+        <View style={styles.emptyContainer}>
+          <Image
+            source={require('../../assets/images/no-invites.png')}
+            style={styles.emptyImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.emptyTitle}>No Invites Yet</Text>
+          <Text style={styles.emptySubtitle}>
+            You’ll see feature requests here when someone adds you to their tracking list.
+          </Text>
+        </View>
+      }
+
     />
   );
+
 }
 
 const styles = StyleSheet.create({
@@ -168,4 +187,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#374151',
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 0,
+    paddingHorizontal: 32,
+  },
+  emptyImage: {
+    width: 250,
+    height: 250,
+    marginBottom: 24,
+    opacity: 0.9,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+
+
 });

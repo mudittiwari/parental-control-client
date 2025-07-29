@@ -1,15 +1,25 @@
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
-import {onDisplayNotification} from "../services/notificationService";
+import { onDisplayNotification } from '../services/notificationService';
 import { loadKeyPair } from './keysStorage';
 import { RSA } from 'react-native-rsa-native';
-import { useTrackingStatus } from './trackingStatus'; 
-const { setSocketConnected } = useTrackingStatus.getState();
 import { SOCKET_URL } from '../constants/constants';
-let client = null;
+import { useTrackingStatus } from './trackingStatus';
 
-export const initSocket = () => {
+
+const getSetSocketConnected = () => {
+  try {
+    return useTrackingStatus.getState().setSocketConnected;
+  } catch (e) {
+    return () => { };
+  }
+};
+
+export const initSocket = (client) => {
+  const setSocketConnected = getSetSocketConnected();
+
   if (client && client.active && client.connected) return;
+
   const socket = new SockJS(`${SOCKET_URL}/ws`);
   client = new Client({
     webSocketFactory: () => socket,
@@ -18,21 +28,26 @@ export const initSocket = () => {
     onConnect: () => {
       console.log('✅ STOMP connected');
       setSocketConnected(true);
-      // Subscribe to receive notifications
+
       client.subscribe('/topic/notifications/device123', async (message) => {
-        const body = JSON.parse(message?.body);
-        const payload  = body?.payload;
-        const keys= await loadKeyPair();
-        if(!keys){
-          console.error('❌ No keys found for decryption');
-          return;
+        try {
+          const body = JSON.parse(message?.body);
+          const payload = body?.payload;
+          const keys = await loadKeyPair();
+
+          if (!keys) {
+            console.error('❌ No keys found for decryption');
+            return;
+          }
+
+          const privateKey = keys.private;
+          const decryptedPayload = await RSA.decrypt(payload, privateKey);
+          console.log('📥 Decrypted payload:', decryptedPayload);
+
+          await onDisplayNotification();
+        } catch (err) {
+          console.error('❌ Error handling incoming message:', err);
         }
-        const privateKey = keys.private;
-        // console.log(keys)
-        // console.log('📥 Received payload:', payload);
-        const decryptedPayload = await RSA.decrypt(payload, privateKey);
-        console.log('📥 Decrypted payload:', decryptedPayload);
-        await onDisplayNotification();
       });
     },
     onStompError: (frame) => {
@@ -46,17 +61,24 @@ export const initSocket = () => {
     onWebSocketError: (error) => {
       setSocketConnected(false);
       console.error('❌ WebSocket error:', error);
-    }
+    },
   });
   client.activate();
+  return client;
 };
 
-export const disconnectSocket = () =>{
-  if(client && client.connected){
+export const disconnectSocket = (client) => {
+  const setSocketConnected = getSetSocketConnected();
+  console.log('🔌 Disconnecting STOMP client...');
+  if (!client) {
+    console.warn('❗ No STOMP client to disconnect');
+    return;
+  }
+  if (client && client.connected) {
+    console.log("hello world")
     client.deactivate();
     setSocketConnected(false);
     console.log('✅ STOMP disconnected');
   }
-}
+};
 
-export const getSocketClient = () => client;

@@ -3,14 +3,15 @@ import { MMKV } from 'react-native-mmkv';
 
 export const storage = new MMKV();
 
-export const saveLocation = (location) => {
-  storage.set('lastLocation', JSON.stringify(location));
+export const setStorageValue = (key, value) => {
+  storage.set(key, JSON.stringify(value));
 };
 
-export const getLastLocation = () => {
-  const loc = storage.getString('lastLocation');
-  return loc ? JSON.parse(loc) : null;
+export const getStorageValue = (key) => {
+  const raw = storage.getString(key);
+  return raw ? JSON.parse(raw) : null;
 };
+
 
 export const saveMatchedContacts = (contacts) => {
   storage.set('matchedContacts', JSON.stringify(contacts));
@@ -33,3 +34,6 @@ export const clearUser = () => {
   storage.delete('currentUser');
 };
 
+export const deleteMatchedContacts = () => {
+  storage.delete('matchedContacts');
+}

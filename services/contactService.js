@@ -10,11 +10,10 @@ export const getContacts = async () => {
     if (status !== 'granted') {
       throw new Error('Permission to access contacts denied');
     }
-
+    console.log('Fetching contacts...');
     const { data } = await Contacts.getContactsAsync({
       fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
     });
-
     const phoneNumbers = data
       .flatMap(contact =>
         contact.phoneNumbers?.map(p => {
@@ -24,7 +23,6 @@ export const getContacts = async () => {
         }) || []
       )
       .filter((num, idx, arr) => num && arr.indexOf(num) === idx);
-
     const lookupResponse = await axios.post(`${BASE_URL}/users/lookup`, {
       phoneNumbers,
     }, {
@@ -67,7 +65,7 @@ export const getContacts = async () => {
     );
     console.log('Matched Contacts:', JSON.stringify(enrichedContacts, null, 2));
     saveMatchedContacts(enrichedContacts);
-    return enrichedContacts;
+    console.log('Contacts saved to storage');
   } catch (error) {
     console.error('Error in getContacts:', error);
     throw new Error(error.message || 'Failed to fetch and match contacts');

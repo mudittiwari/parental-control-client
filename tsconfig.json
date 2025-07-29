@@ -12,7 +12,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "src/constants/colors.js", "components/appContainer.js"  ]
+    "src/constants/colors.js",
+    "components/appContainer.js"
+  ]
 }

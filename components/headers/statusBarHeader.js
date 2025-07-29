@@ -5,31 +5,28 @@ import { startLocationTracking, stopLocationTracking } from '../../services/loca
 import { initSocket, disconnectSocket } from '../../services/socketConnection';
 import { COLORS } from '../../constants/colors';
 import { BlurView } from 'expo-blur';
+import { NativeModules } from 'react-native';
 
 export default function StatusBarHeader() {
     const {
         isLocationTracking,
         isSocketConnected,
-        setLocationTracking,
-        setSocketConnected,
     } = useTrackingStatus();
 
     const handleToggleLocation = async () => {
         if (isLocationTracking) {
-            await stopLocationTracking();
-            setLocationTracking(false);
+            await stopLocationTracking(false, true);
         } else {
-            await startLocationTracking();
-            setLocationTracking(true);
+            await startLocationTracking(true, true);
         }
     };
 
-    const handleToggleSocket = () => {
+    const handleToggleSocket = async () => {
+        console.log(isSocketConnected, "isSocketConnected")
         if (isSocketConnected) {
-            disconnectSocket();
-            setSocketConnected(false);
+            await stopLocationTracking(true, true);
         } else {
-            initSocket();
+            await stopLocationTracking(false, true);
         }
     };
 

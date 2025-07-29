@@ -2,14 +2,15 @@ import BackgroundService from 'react-native-background-actions';
 // import Geolocation from 'react-native-geolocation-service';
 import Geolocation from '@react-native-community/geolocation';
 import { PermissionsAndroid, Platform, Linking, Alert } from 'react-native';
-import { getSocketClient, initSocket } from './socketConnection';
 import { RSA } from 'react-native-rsa-native';
 import { loadKeyPair } from './keysStorage';
 // import { saveLocation } from './locationStorage';
-import { useTrackingStatus } from './trackingStatus'; 
+import { useTrackingStatus } from './trackingStatus';
+import { initSocket, disconnectSocket } from './socketConnection';
 
 let client = null;
 const { setLocationTracking } = useTrackingStatus.getState();
+let watchId = null;
 
 async function requestLocationPermissions() {
     try {
@@ -80,173 +81,198 @@ const encryptLocation = async (location, receiverPublicKey) => {
 };
 
 
-let watchId = null;
-const locationTask = async () => {
-    console.log('📍 Starting hybrid location tracking task');
+const locationTask = async (params) => {
+    console.log(params.socket, params.location)
+    if (params.socket && !params.location) {
+        console.log('📡 Initializing socket connection');
+        client = initSocket(); // returns new client instance
 
-    const interval = 60 * 1000; // 10 seconds
-    const timeoutMs = 8000;
-    const maxFailuresBeforeWatch = 3;
-
-    let failureCount = 0;
-    let watchId = null;
-
-    const sendEncryptedLocation = async (position) => {
-        try {
-            setLocationTracking(true);
-            const timestamp = Date.now();
-            const keys = await loadKeyPair();
-
-            const payload = await encryptLocation(
-                {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                },
-                keys.public
-            );
-
-            const location = {
-                senderId: 'device123',
-                receiverId: 'admin456',
-                payload,
-                timestamp,
-            };
-
-            const client = getSocketClient();
-
-            const maxRetries = 3;
-            let attempt = 0;
-
-            while ((!client || !client.connected) && attempt < maxRetries) {
-                console.warn(`🔁 Attempting to reconnect socket (${attempt + 1}/${maxRetries})`);
-                initSocket(); // make sure this returns a Promise that resolves when socket is ready
-                await sleep(5000);  // wait a bit before next check
-                attempt++;
+        while (true) {
+            if (!BackgroundService.isRunning()) {
+                console.log('⏹️ Background service stopped. Exiting task.');
+                break;
             }
 
-            // After retrying, check again
-            const newClient = getSocketClient();
-            if (newClient && newClient.connected) {
-                newClient.publish({
-                    destination: '/app/send-location',
-                    body: JSON.stringify(location),
-                });
-                console.log('📤 Location sent:', location);
+            const isConnected = client?.connected;
+
+            if (isConnected) {
+                console.log('✅ Socket is connected');
+                // Optionally: emit heartbeat or ping
             } else {
-                console.error('❌ Failed to connect socket after multiple attempts');
+                console.warn('❌ Socket not connected, trying to reconnect...');
+                client = initSocket(); // re-init if lost
             }
 
-        } catch (err) {
-            console.error('❌ Encryption/send failed:', err);
+            await sleep(5000); // avoid CPU hogging
         }
-    };
+    }
 
-    const startWatch = () => {
-        if (watchId !== null) return;
+    else if (params.socket && params.location) {
+        console.log('📡 Initializing socket connection and location tracking');
 
-        console.log('📡 Switching to watchPosition fallback');
-        watchId = Geolocation.watchPosition(
-            async (position) => {
-                console.log('📍 watchPosition received:', position);
-                await sendEncryptedLocation(position);
+        const interval = 60 * 1000; // 10 seconds
+        const timeoutMs = 8000;
+        const maxFailuresBeforeWatch = 3;
 
-                // After 1 successful reading, go back to polling
-                Geolocation.clearWatch(watchId);
-                watchId = null;
-                failureCount = 0;
-                console.log('🔁 Returning to getCurrentPosition mode');
-            },
-            (error) => {
-                console.warn('❌ watchPosition error:', error);
-            },
-            {
-                enableHighAccuracy: false,
-                distanceFilter: 0,
-                interval: 10000,
-                fastestInterval: 5000,
-                showsBackgroundLocationIndicator: true,
-            }
-        );
-    };
+        let failureCount = 0;
+        let watchId = null;
 
-    while (BackgroundService.isRunning()) {
-        await new Promise((resolve) => {
-            let resolved = false;
+        const sendEncryptedLocation = async (position) => {
+            try {
+                setLocationTracking(true);
+                const timestamp = Date.now();
+                const keys = await loadKeyPair();
 
-            const timer = setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    failureCount++;
-                    console.warn('⚠️ getCurrentPosition timed out');
-                    if (failureCount >= maxFailuresBeforeWatch) {
-                        startWatch();
-                    }
-                    resolve();
+                const payload = await encryptLocation(
+                    {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                    },
+                    keys.public
+                );
+
+                const location = {
+                    senderId: 'device123',
+                    receiverId: 'admin456',
+                    payload,
+                    timestamp,
+                };
+
+                client = getSocketClient();
+
+                const maxRetries = 3;
+                let attempt = 0;
+
+                while ((!client || !client.connected) && attempt < maxRetries) {
+                    console.warn(`🔁 Attempting to reconnect socket (${attempt + 1}/${maxRetries})`);
+                    client = initSocket(); // make sure this returns a Promise that resolves when socket is ready
+                    await sleep(5000);  // wait a bit before next check
+                    attempt++;
                 }
-            }, timeoutMs);
 
-            Geolocation.getCurrentPosition(
+                // After retrying, check again
+                client = getSocketClient();
+                if (client && client.connected) {
+                    client.publish({
+                        destination: '/app/send-location',
+                        body: JSON.stringify(location),
+                    });
+                    console.log('📤 Location sent:', location);
+                } else {
+                    console.error('❌ Failed to connect socket after multiple attempts');
+                }
+
+            } catch (err) {
+                console.error('❌ Encryption/send failed:', err);
+            }
+        };
+
+        const startWatch = () => {
+            if (watchId !== null) return;
+
+            console.log('📡 Switching to watchPosition fallback');
+            watchId = Geolocation.watchPosition(
                 async (position) => {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timer);
-                        failureCount = 0;
-                        if (watchId !== null) {
-                            Geolocation.clearWatch(watchId);
-                            watchId = null;
-                            console.log('🛑 Cleared watchPosition after successful one-shot');
-                        }
-                        console.log('✅ getCurrentPosition success:', position);
-                        await sendEncryptedLocation(position);
-                        resolve();
-                    }
+                    console.log('📍 watchPosition received:', position);
+                    await sendEncryptedLocation(position);
+
+                    // After 1 successful reading, go back to polling
+                    Geolocation.clearWatch(watchId);
+                    watchId = null;
+                    failureCount = 0;
+                    console.log('🔁 Returning to getCurrentPosition mode');
                 },
                 (error) => {
+                    console.warn('❌ watchPosition error:', error);
+                },
+                {
+                    enableHighAccuracy: false,
+                    distanceFilter: 0,
+                    interval: 10000,
+                    fastestInterval: 5000,
+                    showsBackgroundLocationIndicator: true,
+                }
+            );
+        };
+
+        while (BackgroundService.isRunning()) {
+            await new Promise((resolve) => {
+                let resolved = false;
+
+                const timer = setTimeout(() => {
                     if (!resolved) {
                         resolved = true;
-                        clearTimeout(timer);
                         failureCount++;
-                        console.warn('❌ getCurrentPosition error:', error);
+                        console.warn('⚠️ getCurrentPosition timed out');
                         if (failureCount >= maxFailuresBeforeWatch) {
                             startWatch();
                         }
                         resolve();
                     }
-                },
-                {
-                    enableHighAccuracy: false,
-                    timeout: timeoutMs,
-                    maximumAge: 0,
-                }
-            );
-        });
+                }, timeoutMs);
 
-        await sleep(interval);
+                Geolocation.getCurrentPosition(
+                    async (position) => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            failureCount = 0;
+                            if (watchId !== null) {
+                                Geolocation.clearWatch(watchId);
+                                watchId = null;
+                                console.log('🛑 Cleared watchPosition after successful one-shot');
+                            }
+                            console.log('✅ getCurrentPosition success:', position);
+                            await sendEncryptedLocation(position);
+                            resolve();
+                        }
+                    },
+                    (error) => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            failureCount++;
+                            console.warn('❌ getCurrentPosition error:', error);
+                            if (failureCount >= maxFailuresBeforeWatch) {
+                                startWatch();
+                            }
+                            resolve();
+                        }
+                    },
+                    {
+                        enableHighAccuracy: false,
+                        timeout: timeoutMs,
+                        maximumAge: 0,
+                    }
+                );
+            });
+
+            await sleep(interval);
+        }
+
+        // Cleanup
+        //   if (watchId !== null) {
+        //     Geolocation.clearWatch(watchId);
+        //     watchId = null;
+        //     console.log('🧹 Cleared watchPosition on exit');
+        //   }
     }
-
-    // Cleanup
-    //   if (watchId !== null) {
-    //     Geolocation.clearWatch(watchId);
-    //     watchId = null;
-    //     console.log('🧹 Cleared watchPosition on exit');
-    //   }
 };
-
-
-
 
 const options = {
     taskName: 'LocationTracker',
     taskTitle: 'Tracking Location',
     taskDesc: 'Sending live location to server',
     taskIcon: {
-        name: 'ic_launcher', // ✅ You must have this in mipmap folder as PNG or WebP
+        name: 'ic_launcher',
         type: 'mipmap',
     },
     color: '#ff00ff',
     linkingURI: 'yourapp://home',
     parameters: {
         delay: 1000,
+        socket: false,
+        location: false
     },
 };
 
@@ -264,40 +290,89 @@ export const checkPermissions = async () => {
 }
 
 // Public API
-export const startLocationTracking = async () => {
-    const granted = await requestLocationPermissions();
-    if (!granted) {
-        Alert.alert('Permission required', 'Grant location permissions to continue');
-        return;
+export const startLocationTracking = async (socket, location) => {
+    if (location) {
+        const granted = await requestLocationPermissions();
+        if (!granted) {
+            Alert.alert('Permission required', 'Grant location permissions to continue');
+            return;
+        }
     }
     const notificationGranted = await requestNotificationPermission();
     if (!notificationGranted) {
         Alert.alert('Notification permission required', 'Please enable notifications for better experience');
         return;
     }
-
     if (!BackgroundService.isRunning()) {
         try {
+            options.parameters.socket = socket && true;
+            options.parameters.location = location && true;
             await BackgroundService.start(locationTask, options);
             console.log('✅ Location service started');
         } catch (err) {
             console.error('❌ Failed to start service:', err);
         }
     }
-};
-export const stopLocationTracking = async () => {
-    if (watchId !== null) {
-        Geolocation.clearWatch(watchId);
-        console.log('🛑 Cleared location watch');
-        watchId = null;
-    }
-
-    if (BackgroundService.isRunning()) {
+    else {
+        console.log('⚠️ Location service already running');
         await BackgroundService.stop();
+        console.log('🛑 Location service stopped');
+        try {
+            options.parameters.socket = socket && true;
+            options.parameters.location = location && true;
+            await BackgroundService.start(locationTask, options);
+            console.log('✅ Location service started');
+        } catch (err) {
+            console.error('❌ Failed to start service:', err);
+        }
+
+    }
+};
+export const stopLocationTracking = async (socket, location) => {
+
+    console.log(socket, location)
+    if (socket && location) {
+        if (watchId !== null) {
+            Geolocation.clearWatch(watchId);
+            console.log('🛑 Cleared location watch');
+            watchId = null;
+        }
+        if (BackgroundService.isRunning()) {
+            console.log("hello how are you")
+            await BackgroundService.stop();
+            console.log('🛑 Background service stopped');
+        }
         setLocationTracking(false);
-        console.log('🛑 Background service stopped');
+        disconnectSocket(client);
+        client = null;
+    }
+    else if (!socket && location) {
+        if (watchId !== null) {
+            Geolocation.clearWatch(watchId);
+            console.log('🛑 Cleared location watch');
+            watchId = null;
+        }
+        if (BackgroundService.isRunning()) {
+            await BackgroundService.stop();
+            setLocationTracking(false);
+            disconnectSocket(client);
+            client = null;
+            console.log('🛑 Background service stopped');
+            console.log("starting service again");
+        }
+
+        try {
+            options.parameters.socket = true;
+            options.parameters.location = false;
+            await BackgroundService.start(locationTask, options);
+            console.log('✅ Location service restarted');
+        } catch (err) {
+            console.error('❌ Failed to restart service:', err);
+        }
     }
 };
 
 
 export const isLocationTracking = () => BackgroundService.isRunning();
+
+export const getSocketClient = () => client;
