@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '../../../services/state/userState';
-import { getMatchedContacts } from '../../../services/localStorage';
+import { addMatchedContact, getMatchedContacts, getMatchedContactsLocation } from '../../../services/localStorage';
 import ScreenHeader from '../../../components/headers/screenHeader';
 import { COLORS } from '../../../constants/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -72,7 +72,12 @@ export default function FriendFeatures() {
     });
   };
 
-
+  const handleStartLocationShare =async(feature)=>{
+    // console.log(feature)
+    // addMatchedContact(feature.trackerPhone)
+    addMatchedContact(feature.trackeePhone);
+    const contacts = getMatchedContactsLocation();
+  }
 
 
   const renderFeatureCard = (feature, type) => {
@@ -138,7 +143,7 @@ export default function FriendFeatures() {
                 </TouchableOpacity>
               )}
               {type === 'mine' && (
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleSocketConnect(feature)}>
+                <TouchableOpacity style={styles.actionButton} onPress={() => handleStartLocationShare(feature)}>
                   <Ionicons name="wifi" size={16} color="#fff" />
                 </TouchableOpacity>
               )}
@@ -268,6 +273,8 @@ export default function FriendFeatures() {
     mine: renderMine,
     theirs: renderTheirs,
   });
+
+  
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

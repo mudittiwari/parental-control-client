@@ -7,6 +7,7 @@ import { loadKeyPair } from './keysStorage';
 // import { saveLocation } from './locationStorage';
 import { useTrackingStatus } from './trackingStatus';
 import { initSocket, disconnectSocket } from './socketConnection';
+import { getMatchedContacts, getMatchedContactsLocation, getUser } from './localStorage';
 
 let client = null;
 const { setLocationTracking } = useTrackingStatus.getState();
@@ -116,28 +117,23 @@ const locationTask = async (params) => {
 
         let failureCount = 0;
         let watchId = null;
+        const user = getUser();
 
         const sendEncryptedLocation = async (position) => {
             try {
                 setLocationTracking(true);
                 const timestamp = Date.now();
-                const keys = await loadKeyPair();
 
-                const payload = await encryptLocation(
-                    {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                    },
-                    keys.public
-                );
-
-                const location = {
-                    senderId: 'device123',
-                    receiverId: 'admin456',
-                    payload,
-                    timestamp,
-                };
-
+                const receiversContacts = JSON.parse(getMatchedContactsLocation());
+                const matchedContacts = getMatchedContacts();
+                console.log(matchedContacts)
+                const finalRecipients = matchedContacts
+                    .filter(friend => receiversContacts.includes(friend.phoneNumber))
+                    .map(friend => ({
+                        phoneNumber: friend.phoneNumber,
+                        pKey: friend.pkey,
+                    }));
+                console.log(finalRecipients)
                 client = getSocketClient();
 
                 const maxRetries = 3;
@@ -145,27 +141,49 @@ const locationTask = async (params) => {
 
                 while ((!client || !client.connected) && attempt < maxRetries) {
                     console.warn(`🔁 Attempting to reconnect socket (${attempt + 1}/${maxRetries})`);
-                    client = initSocket(); // make sure this returns a Promise that resolves when socket is ready
-                    await sleep(5000);  // wait a bit before next check
+                    client = await initSocket(); // make sure this returns a promise
+                    await sleep(2000);
                     attempt++;
                 }
 
-                // After retrying, check again
                 client = getSocketClient();
-                if (client && client.connected) {
-                    client.publish({
-                        destination: '/app/send-location',
-                        body: JSON.stringify(location),
-                    });
-                    console.log('📤 Location sent:', location);
-                } else {
+                if (!client || !client.connected) {
                     console.error('❌ Failed to connect socket after multiple attempts');
+                    return;
+                }
+
+                const senderId = user.phoneNumber;
+                const coords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                };
+                console.log("sending data")
+                for (const recipient of finalRecipients) {
+                    try {
+                        const encryptedPayload = await encryptLocation(coords, recipient.pKey);
+
+                        const locationMessage = {
+                            senderId,
+                            receiverId: recipient.phoneNumber,
+                            payload: encryptedPayload,
+                            timestamp,
+                        };
+                        client.publish({
+                            destination: '/app/send-location',
+                            body: JSON.stringify(locationMessage),
+                        });
+
+                        console.log(`📤 Sent encrypted location to ${recipient.phoneNumber}`);
+                    } catch (e) {
+                        console.error(`❌ Failed to encrypt/send to ${recipient.phoneNumber}:`, e);
+                    }
                 }
 
             } catch (err) {
-                console.error('❌ Encryption/send failed:', err);
+                console.error('❌ Overall sendEncryptedLocation failure:', err);
             }
         };
+
 
         const startWatch = () => {
             if (watchId !== null) return;

@@ -1,12 +1,15 @@
 import { View, TextInput, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { GLOBAL } from '../../constants/global';
 import { COLORS } from '../../constants/colors';
 import PrimaryButton from '../../components/buttons/primaryButton';
 import axios from 'axios';
-import LoadingBar from '../../components/loadingBar'; 
+import LoadingBar from '../../components/loadingBar';
 import { BASE_URL } from '../../constants/constants';
+import { generateKeyPair } from '../../services/generateKeys';
+import { saveKeyPair } from '../../services/keysStorage';
+import { loadKeyPair } from '../../services/keysStorage';
 
 export default function SignupForm() {
   const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '' });
@@ -20,14 +23,27 @@ export default function SignupForm() {
 
     setIsLoading(true);
     try {
-      const res = await axios.post(`${BASE_URL}/auth/register`, {
+      let keyPair = await loadKeyPair();
+      let key = null;
+      if (!keyPair) {
+        console.log('No key pair found, generating new keys...');
+        const keys = await generateKeyPair();
+        await saveKeyPair(keys);
+        key = keys.public;
+      }
+      else{
+        key = keyPair.public; 
+      }
+      const requestBody = {
         name: form.name,
         email: form.email,
         phoneNumber: form.mobile,
         password: form.password,
         lat: "",
         lon: "",
-      },{
+        pKey: key
+      };
+      const res = await axios.post(`${BASE_URL}/auth/register`, requestBody, {
         headers: {
           'Content-Type': 'application/json',
           "ngrok-skip-browser-warning": "true"

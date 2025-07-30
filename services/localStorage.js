@@ -37,3 +37,25 @@ export const clearUser = () => {
 export const deleteMatchedContacts = () => {
   storage.delete('matchedContacts');
 }
+
+export const addMatchedContact = (identifier) => {
+  const raw = storage.getString('matchedContacts');
+  const contactArray = raw ? JSON.parse(raw) : [];
+  const contactSet = new Set(contactArray);
+
+  contactSet.add(identifier);
+  storage.set('matchedContacts', JSON.stringify([...contactSet]));
+  console.log("storage saved")
+};
+export const removeMatchedContact = (identifier) => {
+  const raw = storage.getString('matchedContacts');
+  const contactArray = raw ? JSON.parse(raw) : [];
+
+  const contactSet = new Set(contactArray);
+  contactSet.delete(identifier);
+
+  storage.set('matchedContacts', JSON.stringify([...contactSet]));
+};
+export const getMatchedContactsLocation = () => {
+  return (storage.getString('matchedContacts')) || [];
+};

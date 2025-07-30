@@ -71,7 +71,7 @@ export default function Layout() {
     } catch (error) {
       console.error('Initialization error:', error);
     } finally {
-      await startLocationTracking(true, false);
+      // await startLocationTracking(true, false);
       rehydrateTrackingState();
       await SplashScreen.hideAsync();
       setShowSplash(false);

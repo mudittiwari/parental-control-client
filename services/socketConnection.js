@@ -5,6 +5,7 @@ import { loadKeyPair } from './keysStorage';
 import { RSA } from 'react-native-rsa-native';
 import { SOCKET_URL } from '../constants/constants';
 import { useTrackingStatus } from './trackingStatus';
+import { getUser } from './localStorage';
 
 
 const getSetSocketConnected = () => {
@@ -28,28 +29,31 @@ export const initSocket = (client) => {
     onConnect: () => {
       console.log('✅ STOMP connected');
       setSocketConnected(true);
+      const user = getUser();
+      if (user.phoneNumber) {
+        console.log("subscribing")
+        client.subscribe(`/topic/notifications/${user.phoneNumber}`, async (message) => {
+          try {
+            console.log(message.body)
+            const body = JSON.parse(message?.body);
+            const payload = body?.payload;
+            const keys = await loadKeyPair();
 
-      client.subscribe('/topic/notifications/6376433270', async (message) => {
-        try {
-          console.log(message.body)
-          const body = JSON.parse(message?.body);
-          const payload = body?.payload;
-          const keys = await loadKeyPair();
+            if (!keys) {
+              console.error('❌ No keys found for decryption');
+              return;
+            }
+            console.log(keys)
+            const privateKey = keys.private;
+            const decryptedPayload = await RSA.decrypt(payload, privateKey);
+            console.log('📥 Decrypted payload:', decryptedPayload);
 
-          if (!keys) {
-            console.error('❌ No keys found for decryption');
-            return;
+            await onDisplayNotification();
+          } catch (err) {
+            console.error('❌ Error handling incoming message:', err);
           }
-          console.log(keys)
-          const privateKey = keys.private;
-          const decryptedPayload = await RSA.decrypt(payload, privateKey);
-          console.log('📥 Decrypted payload:', decryptedPayload);
-
-          await onDisplayNotification();
-        } catch (err) {
-          console.error('❌ Error handling incoming message:', err);
-        }
-      });
+        });
+      }
     },
     onStompError: (frame) => {
       setSocketConnected(false);

@@ -25,7 +25,7 @@ export default function LoginScreen() {
     const task = InteractionManager.runAfterInteractions(() => {
       const user = getUser();
       if (user) {
-        console.log('User already logged in:', user);
+        // console.log('User already logged in:', user);
         router.replace('/(tabs)/friends');
       }
     });

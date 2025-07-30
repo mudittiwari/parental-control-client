@@ -10,6 +10,7 @@ import { getContacts } from '../../services/contactService';
 import { loadKeyPair } from '../../services/keysStorage';
 import { useCallback } from 'react';
 import {generateKeyPair} from "../../services/generateKeys"
+import { saveKeyPair } from '../../services/keysStorage';
 
 export default function FriendsScreen() {
   const [friends, setFriends] = useState([]);
@@ -65,7 +66,7 @@ export default function FriendsScreen() {
     }
 
     const matchedContacts = getMatchedContacts();
-    console.log('Matched Contacts:', matchedContacts);
+    // console.log('Matched Contacts:', matchedContacts);
     setFriends(matchedContacts || []);
   };
 
