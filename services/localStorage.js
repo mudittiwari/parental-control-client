@@ -39,23 +39,27 @@ export const deleteMatchedContacts = () => {
 }
 
 export const addMatchedContact = (identifier) => {
-  const raw = storage.getString('matchedContacts');
+  const raw = storage.getString('matchedContactsLocation');
   const contactArray = raw ? JSON.parse(raw) : [];
   const contactSet = new Set(contactArray);
 
   contactSet.add(identifier);
-  storage.set('matchedContacts', JSON.stringify([...contactSet]));
-  console.log("storage saved")
+  storage.set('matchedContactsLocation', JSON.stringify([...contactSet]));
+
 };
 export const removeMatchedContact = (identifier) => {
-  const raw = storage.getString('matchedContacts');
+  const raw = storage.getString('matchedContactsLocation');
   const contactArray = raw ? JSON.parse(raw) : [];
 
   const contactSet = new Set(contactArray);
   contactSet.delete(identifier);
 
-  storage.set('matchedContacts', JSON.stringify([...contactSet]));
+  storage.set('matchedContactsLocation', JSON.stringify([...contactSet]));
 };
 export const getMatchedContactsLocation = () => {
-  return (storage.getString('matchedContacts')) || [];
+  const raw = storage.getString('matchedContactsLocation');
+  return raw ? JSON.parse(raw) : [];
 };
+export const deleteMatchedContactsLocation = () => {
+  storage.delete('matchedContactsLocation');
+}

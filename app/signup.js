@@ -27,7 +27,7 @@ export default function SignupScreen() {
         >
           <View style={styles.innerContainer}>
             <AuthHeader
-              title="Create Your Account 🧸"
+              title="Create Your Account"
               subtitle="Sign up to protect and connect your family"
             />
             <SignupForm />

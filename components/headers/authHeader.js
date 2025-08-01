@@ -5,9 +5,10 @@ export default function AuthHeader({ title, subtitle }) {
   return (
     <View style={styles.wrapper}>
       <Image
-        source={{ uri: 'https://cdn-icons-png.flaticon.com/512/1077/1077012.png' }}
+        source={require('../../assets/images/icon.png')}
         style={styles.icon}
       />
+
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
     </View>
@@ -16,7 +17,7 @@ export default function AuthHeader({ title, subtitle }) {
 
 const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', marginBottom: 30 },
-  icon: { width: 80, height: 80, marginBottom: 10 },
+  icon: { width: 350, height: 150, marginBottom: 10 },
   title: { fontSize: 26, fontWeight: '600', color: COLORS.darkText },
   subtitle: { fontSize: 14, color: COLORS.grayText },
 });

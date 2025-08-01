@@ -47,7 +47,7 @@ export default function LoginScreen() {
         >
           <View style={styles.innerContainer}>
             <AuthHeader
-              title="Welcome Back 👋"
+              title="Welcome Back"
               subtitle="Login to manage your family circle"
             />
             <LoginForm />

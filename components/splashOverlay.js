@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
         zIndex: 9999,
     },
     logo: {
-        width: 180,
-        height: 180,
+        width: 350,
+        height: 150,
         marginBottom: 32,
     },
     welcomeText: {

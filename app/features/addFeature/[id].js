@@ -13,7 +13,7 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 import { COLORS } from '../../../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Circle } from 'react-native-maps';
+// import MapView, { Marker, Circle } from 'react-native-maps';
 import { Picker } from '@react-native-picker/picker';
 import ScreenHeader from '../../../components/headers/screenHeader';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

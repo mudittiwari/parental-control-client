@@ -9,8 +9,9 @@ import LoadingBar from '../../components/loadingBar';
 import { getContacts } from '../../services/contactService';
 import { loadKeyPair } from '../../services/keysStorage';
 import { useCallback } from 'react';
-import {generateKeyPair} from "../../services/generateKeys"
+import { generateKeyPair } from "../../services/generateKeys"
 import { saveKeyPair } from '../../services/keysStorage';
+import { useUserStore } from '../../services/state/userState';
 
 export default function FriendsScreen() {
   const [friends, setFriends] = useState([]);
@@ -18,6 +19,8 @@ export default function FriendsScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const user = useUserStore((state) => state.user);
 
   useEffect(() => {
     initializeContacts();
@@ -77,12 +80,13 @@ export default function FriendsScreen() {
       <FlatList
         data={friends}
         keyExtractor={(item, index) => item.phoneNumber || index.toString()}
-        renderItem={({ item }) => (
-          <FriendCard
-            name={item.name || item.phoneNumber}
-            onPress={() => router.push(`/friend/${item.phoneNumber}/features`)}
-          />
-        )}
+        renderItem={({ item }) => {
+          if (item.phoneNumber != user.phoneNumber)
+            return <FriendCard
+              name={item.name || item.phoneNumber}
+              onPress={() => router.push(`/friend/${item.phoneNumber}/features`)}
+            />
+        }}
         contentContainerStyle={{ flexGrow: 1, paddingTop: 16, paddingBottom: 100 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />

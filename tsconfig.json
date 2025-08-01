@@ -13,6 +13,8 @@
     "**/*.ts",
     "**/*.tsx",
     "src/constants/colors.js",
-    "components/appContainer.js"
+    "components/appContainer.js",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
   ]
 }

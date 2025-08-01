@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '../../../services/state/userState';
-import { addMatchedContact, getMatchedContacts, getMatchedContactsLocation } from '../../../services/localStorage';
+import { addMatchedContact, getMatchedContacts, getMatchedContactsLocation, removeMatchedContact } from '../../../services/localStorage';
 import ScreenHeader from '../../../components/headers/screenHeader';
 import { COLORS } from '../../../constants/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -10,6 +10,7 @@ import { useState } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRef, useEffect } from 'react';
 import { Animated, Easing } from 'react-native';
+import { GlowingButton } from '../../../components/buttons/glowingButton';
 
 export default function FriendFeatures() {
   const layout = Dimensions.get('window');
@@ -20,6 +21,9 @@ export default function FriendFeatures() {
   const matchedContacts = getMatchedContacts();
   const matched = matchedContacts.find((c) => c.phoneNumber === id);
   const allFeatures = matched?.features || {};
+  const [matchedContactsLocation, setMatchedContactsLocation] = useState(() => {
+    return getMatchedContactsLocation();
+  });
 
   const featuresIHaveOnFriend = allFeatures[`${user.phoneNumber}_on_${id}`] || [];
   const featuresFriendHasOnMe = allFeatures[`${id}_on_${user.phoneNumber}`] || [];
@@ -66,17 +70,36 @@ export default function FriendFeatures() {
       const dayMatch = schedule.activeDays?.includes(currentDay);
       const dateMatch = schedule.activeDates?.includes(currentDate);
 
-      console.log(currentTime, currentDate, currentDay, start, end, dayMatch, dateMatch);
-
       return (dayMatch || dateMatch) && currentTime >= start && currentTime < end;
     });
   };
 
-  const handleStartLocationShare =async(feature)=>{
-    // console.log(feature)
+  const handleStartLocationShare = async (feature) => {
+    const contactId = feature.trackerPhone;
+    let contacts = getMatchedContactsLocation();
+    const exists = contacts.includes(contactId);
+
+    if (!exists) {
+      addMatchedContact(contactId);
+      contacts.push(contactId); // Update local copy
+    } else {
+      removeMatchedContact(contactId);
+      contacts = contacts.filter((id) => id !== contactId);
+    }
+    setMatchedContactsLocation(contacts);
+  };
+
+
+  const isContactMatched = (phone) => {
+    return matchedContactsLocation.includes(phone);
+  };
+
+
+
+  const handleStartSocketShare = async (feature) => {
+    console.log(feature)
     // addMatchedContact(feature.trackerPhone)
-    addMatchedContact(feature.trackeePhone);
-    const contacts = getMatchedContactsLocation();
+    // addMatchedContact(feature.trackeePhone);
   }
 
 
@@ -100,6 +123,9 @@ export default function FriendFeatures() {
         ).start();
       }
     }, [isActiveNow]);
+
+
+
 
     return (
       <Animated.View
@@ -138,12 +164,17 @@ export default function FriendFeatures() {
           {isActiveNow && (
             <View style={styles.actionButtonsContainer}>
               {type === 'theirs' && (
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleStartLocationShare(feature)}>
-                  <Ionicons name="location" size={16} color="#fff" />
-                </TouchableOpacity>
+                <GlowingButton
+                  isGlowing={isContactMatched(feature.trackerPhone)}
+                  onPress={() => handleStartLocationShare(feature)}
+                />
               )}
+
               {type === 'mine' && (
-                <TouchableOpacity style={styles.actionButton} onPress={() => handleStartLocationShare(feature)}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleStartSocketShare(feature)}
+                >
                   <Ionicons name="wifi" size={16} color="#fff" />
                 </TouchableOpacity>
               )}
@@ -259,7 +290,9 @@ export default function FriendFeatures() {
     <ScrollView contentContainerStyle={styles.tabContent}>
       {featuresFriendHasOnMe.length === 0 ? (
         <Text style={styles.empty}>This user has no features set on you.</Text>
-      ) : featuresFriendHasOnMe.map(renderFeatureCard, 'theirs')}
+      ) : featuresIHaveOnFriend.map((feature) =>
+        renderFeatureCard(feature, 'theirs')
+      )}
     </ScrollView>
   );
 
@@ -274,7 +307,7 @@ export default function FriendFeatures() {
     theirs: renderTheirs,
   });
 
-  
+
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -507,6 +540,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  glowWrapper: {
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  }
 
 
 });

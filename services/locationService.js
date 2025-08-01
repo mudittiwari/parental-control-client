@@ -124,7 +124,7 @@ const locationTask = async (params) => {
                 setLocationTracking(true);
                 const timestamp = Date.now();
 
-                const receiversContacts = JSON.parse(getMatchedContactsLocation());
+                const receiversContacts = getMatchedContactsLocation();
                 const matchedContacts = getMatchedContacts();
                 console.log(matchedContacts)
                 const finalRecipients = matchedContacts
