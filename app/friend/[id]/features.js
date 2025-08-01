@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '../../../services/state/userState';
-import { addMatchedContact, getMatchedContacts, getMatchedContactsLocation, removeMatchedContact } from '../../../services/localStorage';
+import { addFeatureForPhone, addMatchedContact, getFeaturesForPhone, getMatchedContacts, getMatchedContactsLocation, removeFeatureForPhone, removeMatchedContact } from '../../../services/localStorage';
 import ScreenHeader from '../../../components/headers/screenHeader';
 import { COLORS } from '../../../constants/colors';
 import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
@@ -10,9 +10,14 @@ import { useState } from 'react';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useRef, useEffect } from 'react';
 import { Animated, Easing } from 'react-native';
+import { useTrackingStatus } from '../../../services/trackingStatus';
 import { GlowingButton } from '../../../components/buttons/glowingButton';
 
 export default function FriendFeatures() {
+  const {
+    isLocationTracking,
+    isSocketConnected,
+  } = useTrackingStatus();
   const layout = Dimensions.get('window');
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -74,8 +79,15 @@ export default function FriendFeatures() {
     });
   };
 
-  const handleStartLocationShare = async (feature) => {
+  const handleStartLocationShare = async (feature, activeStatus) => {
+    console.log(feature)
+    if (activeStatus == false) {
+      Alert.alert("","Please start location sharing from Friends tab first.")
+      return;
+    }
+
     const contactId = feature.trackerPhone;
+    console.log(contactId)
     let contacts = getMatchedContactsLocation();
     const exists = contacts.includes(contactId);
 
@@ -95,16 +107,30 @@ export default function FriendFeatures() {
   };
 
 
-
-  const handleStartSocketShare = async (feature) => {
+  const handleStartSocketShare = async (feature, activeStatus) => {
     console.log(feature)
-    // addMatchedContact(feature.trackerPhone)
-    // addMatchedContact(feature.trackeePhone);
+    if (activeStatus == false) {
+      Alert.alert("","Please start notification receiver from Friends tab first.")
+      return;
+    }
+    const features = getFeaturesForPhone(feature.trackeePhone);
+    for (let index = 0; index < features.length; index++) {
+      const element = features[index];
+      if (element?.id === feature.id) {
+        removeFeatureForPhone(feature.trackeePhone, feature.id);
+        console.log(getFeaturesForPhone(feature.trackeePhone));
+        return false;
+      }
+    }
+    addFeatureForPhone(feature.trackeePhone, feature);
+    console.log(getFeaturesForPhone(feature.trackeePhone));
+    return true;
   }
 
 
-  const renderFeatureCard = (feature, type) => {
+  const renderFeatureCard = (feature, type, activeStatus) => {
     const isActiveNow = isNowInSchedule(feature.schedules || []);
+    const [isFeatureNotification, setIsFeatureNotification] = useState(false);
     useEffect(() => {
       if (isActiveNow) {
         Animated.loop(
@@ -124,6 +150,17 @@ export default function FriendFeatures() {
       }
     }, [isActiveNow]);
 
+    useEffect(() => {
+      const features = getFeaturesForPhone(feature.trackeePhone);
+      for (let index = 0; index < features.length; index++) {
+        const element = features[index];
+        if (element?.id === feature.id) {
+          setIsFeatureNotification(true);
+          return;
+        }
+      }
+      setIsFeatureNotification(false);
+    }, [isFeatureNotification]);
 
 
 
@@ -166,17 +203,21 @@ export default function FriendFeatures() {
               {type === 'theirs' && (
                 <GlowingButton
                   isGlowing={isContactMatched(feature.trackerPhone)}
-                  onPress={() => handleStartLocationShare(feature)}
+                  onPress={() =>{
+                     handleStartLocationShare(feature, activeStatus)
+                    }}
+                    icon={"location"}
                 />
               )}
 
               {type === 'mine' && (
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleStartSocketShare(feature)}
-                >
-                  <Ionicons name="wifi" size={16} color="#fff" />
-                </TouchableOpacity>
+                 <GlowingButton
+                  isGlowing={isFeatureNotification}
+                  onPress={() =>{
+                     setIsFeatureNotification(handleStartSocketShare(feature, activeStatus));
+                    }}
+                    icon={"wifi"}
+                />
               )}
             </View>
           )}
@@ -275,13 +316,12 @@ export default function FriendFeatures() {
   };
 
 
-
   const renderMine = () => (
     <ScrollView contentContainerStyle={styles.tabContent}>
       {featuresIHaveOnFriend.length === 0 ? (
         <Text style={styles.empty}>You have no features set on this user.</Text>
       ) : featuresIHaveOnFriend.map((feature) =>
-        renderFeatureCard(feature, 'mine')
+        renderFeatureCard(feature, 'mine', isSocketConnected)
       )}
     </ScrollView>
   );
@@ -291,7 +331,7 @@ export default function FriendFeatures() {
       {featuresFriendHasOnMe.length === 0 ? (
         <Text style={styles.empty}>This user has no features set on you.</Text>
       ) : featuresIHaveOnFriend.map((feature) =>
-        renderFeatureCard(feature, 'theirs')
+        renderFeatureCard(feature, 'theirs', isLocationTracking)
       )}
     </ScrollView>
   );

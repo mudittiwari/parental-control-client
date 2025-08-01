@@ -49,7 +49,6 @@ export const getContacts = async () => {
               "ngrok-skip-browser-warning": "true"
             },
           });
-
           return {
             ...contact,
             features: featuresRes.data || [],

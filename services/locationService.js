@@ -118,12 +118,11 @@ const locationTask = async (params) => {
         let failureCount = 0;
         let watchId = null;
         const user = getUser();
-
+        const keys = await loadKeyPair();
         const sendEncryptedLocation = async (position) => {
             try {
                 setLocationTracking(true);
                 const timestamp = Date.now();
-
                 const receiversContacts = getMatchedContactsLocation();
                 const matchedContacts = getMatchedContacts();
                 console.log(matchedContacts)
@@ -131,7 +130,7 @@ const locationTask = async (params) => {
                     .filter(friend => receiversContacts.includes(friend.phoneNumber))
                     .map(friend => ({
                         phoneNumber: friend.phoneNumber,
-                        pKey: friend.pkey,
+                        pKey: keys.public,
                     }));
                 console.log(finalRecipients)
                 client = getSocketClient();
@@ -157,7 +156,6 @@ const locationTask = async (params) => {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
                 };
-                console.log("sending data")
                 for (const recipient of finalRecipients) {
                     try {
                         const encryptedPayload = await encryptLocation(coords, recipient.pKey);

@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export const GlowingButton = ({ isGlowing, onPress }) => {
+export const GlowingButton = ({ isGlowing, onPress, icon }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export const GlowingButton = ({ isGlowing, onPress }) => {
       ]}
     >
       <TouchableOpacity style={styles.actionButton} onPress={onPress}>
-        <Ionicons name="location" size={18} color="#fff" />
+        <Ionicons name={icon} size={18} color="#fff" />
       </TouchableOpacity>
     </Animated.View>
   );

@@ -1,6 +1,6 @@
 // stores/useUserStore.js
 import { create } from 'zustand';
-import { saveUser, getUser, clearUser as clearUserStorage, deleteMatchedContacts, deleteMatchedContactsLocation } from '../../services/localStorage';
+import { saveUser, getUser, clearUser as clearUserStorage, deleteMatchedContacts, deleteMatchedContactsLocation, clearAllFeatures } from '../../services/localStorage';
 
 export const useUserStore = create((set) => ({
   user: getUser(),
@@ -14,6 +14,7 @@ export const useUserStore = create((set) => ({
     clearUserStorage();
     deleteMatchedContacts();
     deleteMatchedContactsLocation();
+    clearAllFeatures();
     set({ user: null });
   },
 
